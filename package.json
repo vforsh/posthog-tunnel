@@ -1,0 +1,34 @@
+{
+	"name": "posthog-tunnel",
+	"bin": {
+		"phtun": "src/cli.ts"
+	},
+	"scripts": {
+		"start": "bun run --hot src/index.ts",
+		"typecheck-dev": "bunx tsc --watch --noEmit",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"build": "bun build src/index.ts --outdir dist --target bun",
+		"start:prod": "bun run dist/index.js",
+		"deploy": "git push dokku main",
+		"deploy-env": "bun run dokku-env-set.ts posthog-tunnel",
+		"deploy-env:no-restart": "bun run dokku-env-set.ts --no-restart posthog-tunnel",
+		"cli": "bun run src/cli.ts"
+	},
+	"dependencies": {
+		"@elysiajs/cors": "1.2.0",
+		"@t3-oss/env-core": "^0.11.1",
+		"commander": "^14.0.2",
+		"elysia": "1.2.25",
+		"smol-toml": "^1.3.1",
+		"zod": "^3.23.8"
+	},
+	"devDependencies": {
+		"@tsconfig/bun": "^1.0.7",
+		"@types/bun": "latest",
+		"prettier": "^3.5.3",
+		"prettier-plugin-organize-imports": "^4.1.0",
+		"typescript": "^5.7.3",
+		"vitest": "^1.4.0"
+	}
+}

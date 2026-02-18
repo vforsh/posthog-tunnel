@@ -1,0 +1,19 @@
+{
+	"name": "posthog-tunnel",
+	"description": "A PostHog reverse proxy that bypasses ad-blockers",
+	"repository": "https://github.com/vforsh/posthog-tunnel",
+	"keywords": ["bun", "posthog", "tunnel", "proxy", "elysia"],
+	"healthchecks": {
+		"web": [
+			{
+				"type": "http",
+				"name": "web-check",
+				"description": "Checking if the web server is responsive",
+				"path": "/health",
+				"attempts": 3,
+				"timeout": 5,
+				"initial_delay": 5
+			}
+		]
+	}
+}

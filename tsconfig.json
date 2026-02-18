@@ -1,0 +1,4 @@
+{
+	"extends": "@tsconfig/bun/tsconfig.json",
+	"files": ["src/index.ts"]
+}
