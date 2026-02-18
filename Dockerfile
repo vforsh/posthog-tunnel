@@ -9,4 +9,4 @@ COPY . .
 
 EXPOSE $PORT
 
-CMD ["bun", "start"]
+CMD ["bun", "run", "src/index.ts"]

@@ -1,28 +1,32 @@
+const ARRAY_CONFIG_RE = /\/array\/([^/]+)\/config/
+
 /**
- * Extract PostHog project API key from a request (priority order):
- * 1. Query param `token` or `_`
- * 2. URL path match `/array/{apiKey}/config`
- * 3. JSON body field `token` or `api_key` (POST only)
- * 4. Not found → null (allow-all default)
- *
- * Note: field names (`token`, `api_key`, `_`) are PostHog's wire format.
+ * Extract PostHog API key from URL only (query params + path).
+ * Returns null if not found — caller may need to check body.
  */
-export function extractApiKey(url: URL, method: string, body: unknown): string | null {
-	// 1. Query params
+export function extractApiKeyFromUrl(url: URL): string | null {
 	const qKey = url.searchParams.get('token') || url.searchParams.get('_')
 	if (qKey) return qKey
 
-	// 2. Path pattern: /ingest/array/{apiKey}/config or /array/{apiKey}/config
-	const pathMatch = url.pathname.match(/\/array\/([^/]+)\/config/)
+	const pathMatch = url.pathname.match(ARRAY_CONFIG_RE)
 	if (pathMatch) return pathMatch[1]!
 
-	// 3. JSON body (POST only)
-	if (method === 'POST' && body && typeof body === 'object') {
-		const obj = body as Record<string, unknown>
-		const bodyKey = obj.token ?? obj.api_key
-		if (typeof bodyKey === 'string' && bodyKey) return bodyKey
-	}
+	return null
+}
 
+/**
+ * Extract PostHog API key from a raw body string (JSON only).
+ */
+export function extractApiKeyFromBody(bodyText: string): string | null {
+	try {
+		const obj = JSON.parse(bodyText)
+		if (obj && typeof obj === 'object') {
+			const key = obj.token ?? obj.api_key
+			if (typeof key === 'string' && key) return key
+		}
+	} catch {
+		// Not JSON or parse error
+	}
 	return null
 }
 
@@ -32,8 +36,10 @@ type ForwardOptions = {
 	path: string
 	queryString: string
 	headers: Headers
-	body: unknown
+	body: ReadableStream<Uint8Array> | string | null
 }
+
+const FORWARDED_HEADERS = ['content-type', 'user-agent', 'accept', 'accept-encoding'] as const
 
 /**
  * Forward a request to PostHog and return the response.
@@ -44,7 +50,7 @@ export async function forwardRequest(opts: ForwardOptions): Promise<Response> {
 	const targetUrl = `https://${targetHost}${path}${qs}`
 
 	const forwardHeaders: Record<string, string> = {}
-	for (const key of ['content-type', 'user-agent', 'accept', 'accept-encoding']) {
+	for (const key of FORWARDED_HEADERS) {
 		const value = headers.get(key)
 		if (value) forwardHeaders[key] = value
 	}
@@ -54,12 +60,8 @@ export async function forwardRequest(opts: ForwardOptions): Promise<Response> {
 		headers: forwardHeaders,
 	}
 
-	if (method === 'POST') {
-		if (typeof body === 'string') {
-			init.body = body
-		} else if (body !== null && body !== undefined) {
-			init.body = JSON.stringify(body)
-		}
+	if (method === 'POST' && body !== null) {
+		init.body = body
 	}
 
 	return fetch(targetUrl, init)

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 
 export type BlocklistEntry = {
 	apiKey: string
@@ -9,6 +9,13 @@ export type BlocklistEntry = {
 export type BlocklistData = {
 	apiKeys: BlocklistEntry[]
 	globalBlockedDomains: string[]
+}
+
+/** Fast-lookup index derived from BlocklistData */
+export type BlocklistIndex = {
+	apiKeyMap: Map<string, BlocklistEntry>
+	globalDomainSet: Set<string>
+	perKeyDomainSets: Map<string, Set<string>>
 }
 
 export function loadBlocklist(filePath: string): BlocklistData {
@@ -27,14 +34,27 @@ export function loadBlocklist(filePath: string): BlocklistData {
 	}
 }
 
-export function saveBlocklist(filePath: string, data: BlocklistData): void {
-	writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n')
+/** Build O(1) lookup index from blocklist data. Rebuild after every mutation. */
+export function buildIndex(data: BlocklistData): BlocklistIndex {
+	const apiKeyMap = new Map<string, BlocklistEntry>()
+	const perKeyDomainSets = new Map<string, Set<string>>()
+
+	for (const entry of data.apiKeys) {
+		apiKeyMap.set(entry.apiKey, entry)
+		perKeyDomainSets.set(entry.apiKey, new Set(entry.blockedDomains))
+	}
+
+	return {
+		apiKeyMap,
+		globalDomainSet: new Set(data.globalBlockedDomains),
+		perKeyDomainSets,
+	}
+}
+
+export async function saveBlocklist(filePath: string, data: BlocklistData): Promise<void> {
+	await Bun.write(filePath, JSON.stringify(data, null, 2) + '\n')
 }
 
 export function findApiKey(data: BlocklistData, apiKey: string): BlocklistEntry | undefined {
 	return data.apiKeys.find((e) => e.apiKey === apiKey)
-}
-
-export function isApiKeyBlocked(data: BlocklistData, apiKey: string): boolean {
-	return data.apiKeys.some((e) => e.apiKey === apiKey)
 }

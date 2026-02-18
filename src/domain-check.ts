@@ -1,9 +1,19 @@
 /**
- * Check if a hostname matches any domain in the list.
- * Supports exact match and subdomain matching (e.g. "foo.example.com" matches "example.com").
+ * Check if a hostname matches any domain in a Set.
+ * Walks up parent domains for subdomain matching
+ * (e.g. "sub.example.com" matches "example.com").
  */
-export function isDomainBlocked(hostname: string, blockedDomains: string[]): boolean {
-	return blockedDomains.some((d) => hostname === d || hostname.endsWith(`.${d}`))
+export function isDomainBlocked(hostname: string, domainSet: Set<string>): boolean {
+	if (domainSet.size === 0) return false
+	if (domainSet.has(hostname)) return true
+
+	let dot = hostname.indexOf('.')
+	while (dot !== -1) {
+		if (domainSet.has(hostname.slice(dot + 1))) return true
+		dot = hostname.indexOf('.', dot + 1)
+	}
+
+	return false
 }
 
 /**
