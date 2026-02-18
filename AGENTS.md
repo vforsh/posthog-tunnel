@@ -25,8 +25,8 @@ PostHog reverse proxy built with **Bun** and **Elysia**. Forwards PostHog tracki
 ### Key modules
 
 - **`src/index.ts`** — Elysia server with proxy routes (`/ingest/*`, `/static/*`), health check, and admin API (8 endpoints under `/admin/`). Bearer token auth via `isAuthorized()`.
-- **`src/blocklist.ts`** — `BlocklistData` persisted to `blocklist.json`. Tokens and global blocked domains. Missing/empty file = allow everything.
-- **`src/proxy.ts`** — `extractToken()` (query → path → body priority) and `forwardRequest()` to PostHog.
+- **`src/blocklist.ts`** — `BlocklistData` persisted to `blocklist.json`. API keys and global blocked domains. Missing/empty file = allow everything.
+- **`src/proxy.ts`** — `extractApiKey()` (query → path → body priority) and `forwardRequest()` to PostHog.
 - **`src/domain-check.ts`** — `isDomainBlocked()` with subdomain matching, `getRequestHost()` from Referer/Origin.
 - **`src/env.ts`** — Type-safe env vars using `@t3-oss/env-core` + Zod. `ADMIN_API_KEY` is required; everything else has defaults.
 - **`src/cli.ts`** — Commander-based CLI (`phtun`) that calls the admin API. Loads `.env` then TOML config for defaults.

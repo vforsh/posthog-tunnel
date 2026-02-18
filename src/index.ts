@@ -2,10 +2,10 @@ import { cors } from '@elysiajs/cors'
 import { Elysia } from 'elysia'
 import { existsSync } from 'fs'
 import { resolve } from 'path'
-import { type BlocklistData, findToken, isTokenBlocked, loadBlocklist, saveBlocklist } from './blocklist'
+import { type BlocklistData, findApiKey, isApiKeyBlocked, loadBlocklist, saveBlocklist } from './blocklist'
 import { getRequestHost, isDomainBlocked } from './domain-check'
 import { env } from './env'
-import { extractToken, forwardRequest } from './proxy'
+import { extractApiKey, forwardRequest } from './proxy'
 
 // Blocklist setup
 const BLOCKLIST_PATH = resolve(import.meta.dir, '..', 'blocklist.json')
@@ -46,31 +46,31 @@ function isAuthorized(headers: Record<string, string | undefined>): boolean {
 }
 
 /**
- * Check if a request should be blocked based on token + domain blocklist.
+ * Check if a request should be blocked based on API key + domain blocklist.
  * Returns an error message if blocked, or null if allowed.
  */
-function checkBlocked(token: string | null, request: Request): string | null {
+function checkBlocked(apiKey: string | null, request: Request): string | null {
 	// Check global domain blocklist first
 	const host = getRequestHost(request)
 	if (host && isDomainBlocked(host, blocklist.globalBlockedDomains)) {
 		return `Domain blocked globally: ${host}`
 	}
 
-	// No token → allow (allow-all default)
-	if (!token) return null
+	// No API key → allow (allow-all default)
+	if (!apiKey) return null
 
-	// Check token blocklist
-	if (!isTokenBlocked(blocklist, token)) return null
+	// Check API key blocklist
+	if (!isApiKeyBlocked(blocklist, apiKey)) return null
 
-	const entry = findToken(blocklist, token)!
+	const entry = findApiKey(blocklist, apiKey)!
 
-	// Check per-token domain blocklist
+	// Check per-key domain blocklist
 	if (host && isDomainBlocked(host, entry.blockedDomains)) {
-		return `Domain blocked for token ${token}: ${host}`
+		return `Domain blocked for API key ${apiKey}: ${host}`
 	}
 
-	// Token is in blocklist → reject
-	return `Token blocked: ${token}`
+	// API key is in blocklist → reject
+	return `API key blocked: ${apiKey}`
 }
 
 // Proxy handler shared by ingest routes
@@ -80,7 +80,7 @@ async function handleProxy(request: Request, path: string, targetHost: string): 
 	devLog(`[${requestId}] ${request.method} ${url.pathname}`)
 
 	try {
-		// Buffer body for token extraction
+		// Buffer body for API key extraction
 		let body: unknown = null
 		if (request.method === 'POST') {
 			const ct = request.headers.get('content-type') || ''
@@ -91,10 +91,10 @@ async function handleProxy(request: Request, path: string, targetHost: string): 
 			}
 		}
 
-		const token = extractToken(url, request.method, body)
-		devLog(`[${requestId}] token=${token ?? '(none)'}`)
+		const apiKey = extractApiKey(url, request.method, body)
+		devLog(`[${requestId}] apiKey=${apiKey ?? '(none)'}`)
 
-		const blocked = checkBlocked(token, request)
+		const blocked = checkBlocked(apiKey, request)
 		if (blocked) {
 			devLog(`[${requestId}] ${blocked}`)
 			return new Response(JSON.stringify({ error: blocked }), {
@@ -150,54 +150,54 @@ export const app = new Elysia({
 		return handleProxy(request, url.pathname, env.POSTHOG_ASSETS_HOST)
 	})
 
-	// ── Admin: tokens ─────────────────────────────────────────────────
-	.get('/admin/tokens', ({ headers, set }) => {
+	// ── Admin: API keys ───────────────────────────────────────────────
+	.get('/admin/api-keys', ({ headers, set }) => {
 		if (!isAuthorized(headers)) {
 			set.status = 401
 			return { error: 'Unauthorized' }
 		}
-		return blocklist.tokens
+		return blocklist.apiKeys
 	})
-	.post('/admin/tokens', ({ headers, set, body }) => {
+	.post('/admin/api-keys', ({ headers, set, body }) => {
 		if (!isAuthorized(headers)) {
 			set.status = 401
 			return { error: 'Unauthorized' }
 		}
 
-		const { token, label } = body as { token?: string; label?: string }
-		if (!token) {
+		const { apiKey, label } = body as { apiKey?: string; label?: string }
+		if (!apiKey) {
 			set.status = 400
-			return { error: 'Missing token' }
+			return { error: 'Missing apiKey' }
 		}
 		if (!label) {
 			set.status = 400
 			return { error: 'Missing label' }
 		}
 
-		const existing = findToken(blocklist, token)
+		const existing = findApiKey(blocklist, apiKey)
 		if (existing) {
 			existing.label = label
 		} else {
-			blocklist.tokens.push({ token, label, blockedDomains: [] })
+			blocklist.apiKeys.push({ apiKey, label, blockedDomains: [] })
 		}
 		saveBlocklist(BLOCKLIST_PATH, blocklist)
 
 		set.status = 201
-		return findToken(blocklist, token)
+		return findApiKey(blocklist, apiKey)
 	})
-	.delete('/admin/tokens/:token', ({ headers, set, params }) => {
+	.delete('/admin/api-keys/:apiKey', ({ headers, set, params }) => {
 		if (!isAuthorized(headers)) {
 			set.status = 401
 			return { error: 'Unauthorized' }
 		}
 
-		const idx = blocklist.tokens.findIndex((t) => t.token === params.token)
+		const idx = blocklist.apiKeys.findIndex((e) => e.apiKey === params.apiKey)
 		if (idx === -1) {
 			set.status = 404
-			return { error: `Token ${params.token} not found` }
+			return { error: `API key ${params.apiKey} not found` }
 		}
 
-		blocklist.tokens.splice(idx, 1)
+		blocklist.apiKeys.splice(idx, 1)
 		saveBlocklist(BLOCKLIST_PATH, blocklist)
 		return { ok: true }
 	})
@@ -247,17 +247,17 @@ export const app = new Elysia({
 		return { ok: true }
 	})
 
-	// ── Admin: per-token domains ──────────────────────────────────────
-	.post('/admin/tokens/:token/blocked-domains', ({ headers, set, params, body }) => {
+	// ── Admin: per-key domains ────────────────────────────────────────
+	.post('/admin/api-keys/:apiKey/blocked-domains', ({ headers, set, params, body }) => {
 		if (!isAuthorized(headers)) {
 			set.status = 401
 			return { error: 'Unauthorized' }
 		}
 
-		const entry = findToken(blocklist, params.token)
+		const entry = findApiKey(blocklist, params.apiKey)
 		if (!entry) {
 			set.status = 404
-			return { error: `Token ${params.token} not found` }
+			return { error: `API key ${params.apiKey} not found` }
 		}
 
 		const { domain } = body as { domain?: string }
@@ -273,16 +273,16 @@ export const app = new Elysia({
 
 		return entry
 	})
-	.delete('/admin/tokens/:token/blocked-domains/:domain', ({ headers, set, params }) => {
+	.delete('/admin/api-keys/:apiKey/blocked-domains/:domain', ({ headers, set, params }) => {
 		if (!isAuthorized(headers)) {
 			set.status = 401
 			return { error: 'Unauthorized' }
 		}
 
-		const entry = findToken(blocklist, params.token)
+		const entry = findApiKey(blocklist, params.apiKey)
 		if (!entry) {
 			set.status = 404
-			return { error: `Token ${params.token} not found` }
+			return { error: `API key ${params.apiKey} not found` }
 		}
 
 		const idx = entry.blockedDomains.indexOf(params.domain)
@@ -301,7 +301,7 @@ export const app = new Elysia({
 		console.log(`${ts()} 🌍 Environment: ${env.ENV}`)
 		console.log(`${ts()} 🎯 PostHog host: ${env.POSTHOG_HOST}`)
 		console.log(
-			`${ts()} 🚫 Blocked tokens: ${blocklist.tokens.length > 0 ? blocklist.tokens.map((t) => t.token).join(', ') : 'None (all traffic allowed)'}`,
+			`${ts()} 🚫 Blocked API keys: ${blocklist.apiKeys.length > 0 ? blocklist.apiKeys.map((e) => e.apiKey).join(', ') : 'None (all traffic allowed)'}`,
 		)
 		if (blocklist.globalBlockedDomains.length > 0) {
 			console.log(`${ts()} 🌐 Global blocked domains: ${blocklist.globalBlockedDomains.join(', ')}`)

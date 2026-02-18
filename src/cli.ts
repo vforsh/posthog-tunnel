@@ -66,8 +66,8 @@ program
 	.command('list')
 	.description('List blocked API keys and global domains')
 	.action(async () => {
-		const entries = (await request('GET', '/admin/tokens')) as {
-			token: string
+		const entries = (await request('GET', '/admin/api-keys')) as {
+			apiKey: string
 			label: string
 			blockedDomains: string[]
 		}[]
@@ -81,7 +81,7 @@ program
 		if (entries.length > 0) {
 			console.log(`${entries.length} blocked API key(s):\n`)
 			for (const e of entries) {
-				console.log(`  ${e.token} (${e.label})`)
+				console.log(`  ${e.apiKey} (${e.label})`)
 				if (e.blockedDomains?.length > 0) {
 					console.log(`    domains: ${e.blockedDomains.join(', ')}`)
 				}
@@ -104,8 +104,8 @@ program
 	.description('Block a project API key')
 	.requiredOption('--label <label>', 'Human-readable label (required)')
 	.action(async (apiKey: string, opts: { label: string }) => {
-		const entry = (await request('POST', '/admin/tokens', { token: apiKey, label: opts.label })) as any
-		console.log(`Blocked API key ${entry.token} (${entry.label})`)
+		const entry = (await request('POST', '/admin/api-keys', { apiKey, label: opts.label })) as any
+		console.log(`Blocked API key ${entry.apiKey} (${entry.label})`)
 	})
 
 // ── unblock / allow ───────────────────────────────────────────────────
@@ -114,7 +114,7 @@ program
 	.alias('allow')
 	.description('Unblock a project API key')
 	.action(async (apiKey: string) => {
-		await request('DELETE', `/admin/tokens/${encodeURIComponent(apiKey)}`)
+		await request('DELETE', `/admin/api-keys/${encodeURIComponent(apiKey)}`)
 		console.log(`Unblocked API key ${apiKey}`)
 	})
 
@@ -126,11 +126,11 @@ domain
 	.description('List blocked domains (global or per-API-key)')
 	.action(async (apiKey?: string) => {
 		if (apiKey) {
-			const entries = (await request('GET', '/admin/tokens')) as {
-				token: string
+			const entries = (await request('GET', '/admin/api-keys')) as {
+				apiKey: string
 				blockedDomains: string[]
 			}[]
-			const entry = entries.find((e) => e.token === apiKey)
+			const entry = entries.find((e) => e.apiKey === apiKey)
 			if (!entry) {
 				console.error(`API key ${apiKey} not found in blocklist`)
 				process.exit(1)
@@ -166,7 +166,7 @@ domain
 			console.log(`Blocked domain globally: ${args[0]}`)
 		} else if (args.length === 2) {
 			const [apiKey, domainName] = args
-			await request('POST', `/admin/tokens/${encodeURIComponent(apiKey)}/blocked-domains`, { domain: domainName })
+			await request('POST', `/admin/api-keys/${encodeURIComponent(apiKey)}/blocked-domains`, { domain: domainName })
 			console.log(`Blocked domain ${domainName} for API key ${apiKey}`)
 		} else {
 			console.error('Usage: phtun domain block <domain> OR phtun domain block <api-key> <domain>')
@@ -186,7 +186,7 @@ domain
 			const [apiKey, domainName] = args
 			await request(
 				'DELETE',
-				`/admin/tokens/${encodeURIComponent(apiKey)}/blocked-domains/${encodeURIComponent(domainName)}`,
+				`/admin/api-keys/${encodeURIComponent(apiKey)}/blocked-domains/${encodeURIComponent(domainName)}`,
 			)
 			console.log(`Unblocked domain ${domainName} for API key ${apiKey}`)
 		} else {

@@ -58,14 +58,14 @@ All endpoints require `Authorization: Bearer <ADMIN_API_KEY>`.
 
 | Method | Path | Action |
 |--------|------|--------|
-| GET | `/admin/tokens` | List blocked API keys |
-| POST | `/admin/tokens` | Block API key `{ token, label }` |
-| DELETE | `/admin/tokens/:token` | Unblock API key |
+| GET | `/admin/api-keys` | List blocked API keys |
+| POST | `/admin/api-keys` | Block API key `{ apiKey, label }` |
+| DELETE | `/admin/api-keys/:apiKey` | Unblock API key |
 | GET | `/admin/domains` | List global blocked domains |
 | POST | `/admin/domains` | Block domain globally `{ domain }` |
 | DELETE | `/admin/domains/:domain` | Unblock global domain |
-| POST | `/admin/tokens/:token/blocked-domains` | Block domain for API key |
-| DELETE | `/admin/tokens/:token/blocked-domains/:domain` | Unblock domain for API key |
+| POST | `/admin/api-keys/:apiKey/blocked-domains` | Block domain for API key |
+| DELETE | `/admin/api-keys/:apiKey/blocked-domains/:domain` | Unblock domain for API key |
 
 ## Deploy
 
