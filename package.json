@@ -11,8 +11,6 @@
 		"build": "bun build src/index.ts --outdir dist --target bun",
 		"start:prod": "bun run dist/index.js",
 		"deploy": "git push dokku main",
-		"deploy-env": "bun run dokku-env-set.ts posthog-tunnel",
-		"deploy-env:no-restart": "bun run dokku-env-set.ts --no-restart posthog-tunnel",
 		"cli": "bun run src/cli.ts"
 	},
 	"dependencies": {

@@ -12,8 +12,7 @@ bun run test                 # Run tests (vitest)
 bun run test:watch           # Tests in watch mode
 bun run typecheck-dev        # TypeScript watch (no emit)
 bun run cli <command>        # Run CLI (list, block, unblock, domain)
-bun run deploy               # git push dokku main
-bun run deploy-env           # Push env vars to Dokku via SSH
+bun run deploy               # git push dokku main (robowhale.com)
 ```
 
 ## Architecture
@@ -34,7 +33,9 @@ PostHog reverse proxy built with **Bun** and **Elysia**. Forwards PostHog tracki
 
 ### Deployment
 
-Deployed to Dokku on `robowhale.ru` via `git push dokku main`. Docker build uses `oven/bun:1.2.2`. Caddy handles TLS and reverse proxy. Domain: `phtun.robowhale.ru`.
+Deployed to Dokku on `robowhale.com` (143.14.50.26) via `git push dokku main`. Docker build uses `oven/bun:1.2.2`. Traefik handles TLS and reverse proxy. Domain: `phtun.robowhale.com`.
+
+Dokku runs behind the existing Traefik instance — nginx proxy is disabled (`proxy:disable`), container joins the `proxy` Docker network via `attach-post-create`, and Traefik labels are injected via `dokku docker-options`.
 
 ## Code style
 
